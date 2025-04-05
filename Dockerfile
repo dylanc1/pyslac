@@ -9,10 +9,10 @@ ENV PYTHONFAULTHANDLER=1 \
   PIP_NO_CACHE_DIR=1 \
   PIP_DISABLE_PIP_VERSION_CHECK=1 \
   PIP_DEFAULT_TIMEOUT=100 \
-  POETRY_VERSION=1.1.11 \
+  POETRY_VERSION=1.6.1 \
   VIRTUALENV_PIP=21.2.1
 
-RUN pip install "poetry==$POETRY_VERSION"
+RUN pip install "poetry>=$POETRY_VERSION"
 
 # Due to an issue with Python 3.10 and poetry, if we use a poetry virtual env,
 # we need to disable the option: poetry config experimental.new-installer false
