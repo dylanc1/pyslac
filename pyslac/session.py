@@ -922,7 +922,7 @@ class SlacSessionController:
             await slac_session.evse_slac_parm()
             if slac_session.state == STATE_MATCHING:
                 logger.info(
-                    f"Matching ongoing (EVSE ID: {slac_session.evse_id}. Run ID: {slac_session.run_id})."
+                    f"Matching ongoing (EVSE ID: {slac_session.evse_id}. Run ID: {slac_session.run_id})."   # noqa: E501
                 )
                 await self.notify_matching_ongoing(slac_session.evse_id)
                 try:
@@ -936,7 +936,7 @@ class SlacSessionController:
                     )
             if slac_session.state == STATE_MATCHED:
                 logger.info(
-                    f"PEV-EVSE MATCHED Successfully, Link Established (EVSE ID: {slac_session.evse_id}. Run ID: {slac_session.run_id})."
+                    f"PEV-EVSE MATCHED Successfully, Link Established (EVSE ID: {slac_session.evse_id}. Run ID: {slac_session.run_id})."   # noqa: E501
                 )
                 while True:
                     await asyncio.sleep(2.0)

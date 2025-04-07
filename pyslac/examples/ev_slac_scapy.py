@@ -31,7 +31,7 @@ from pyslac.utils import get_if_hwaddr
 
 BROADCAST_ADDR = "FF:FF:FF:FF:FF:FF"
 ATHEROS_CHIP_MAC = "00:b0:52:00:00:01"
-IFACE = "enp0s3"
+IFACE = "enp0s1"
 
 
 class HomePlugHeader(Packet):
