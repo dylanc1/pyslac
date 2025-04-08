@@ -745,6 +745,7 @@ class SlacEvseSession(SlacSession):
                 logger.debug(f"New NMK: {self.nmk}")
             except asyncio.TimeoutError as e:
                 raise TimeoutError("ECDH Exchange Timeout raised") from e
+            break
 
     async def cm_slac_match(self):
         logger.debug("CM_SLAC_MATCH: Started...")
