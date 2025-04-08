@@ -5,11 +5,15 @@ from dataclasses import dataclass, field
 from inspect import isawaitable
 from os import urandom
 from typing import List, Optional, Union
+from hashlib import sha256
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 
 from pyslac import __version__
 from pyslac.enums import (
     CM_ATTEN_CHAR,
     CM_ATTEN_PROFILE,
+    CM_ECDH_EXCHANGE,
     CM_MNBC_SOUND,
     CM_SET_KEY,
     CM_SLAC_MATCH,
@@ -44,6 +48,8 @@ from pyslac.messages import (
     AtennChar,
     AtennCharRsp,
     AttenProfile,
+    ECDHExchangeReq,
+    ECDHExchangeResp,
     MatchCnf,
     MatchReq,
     MnbcSound,
@@ -692,6 +698,54 @@ class SlacEvseSession(SlacSession):
         logger.debug(f"Num total sounds: {self.num_total_sounds}")
         logger.debug(f"Num expected sounds: {self.num_expected_sounds}")
 
+    async def cm_ecdh_exchange(self):
+        logger.debug("CM_ECDH_EXCHANGE: Started...")
+
+        private_key = ec.generate_private_key(ec.SECP192R1())
+        public_key = private_key.public_key()
+        qc_bytes = public_key.public_bytes(
+            encoding=serialization.Encoding.X962,
+            format=serialization.PublicFormat.UncompressedPoint
+        )
+
+        ethernet_header = EthernetHeader(
+            dst_mac=self.evse_plc_mac, src_mac=self.evse_mac
+        )
+        homeplug_header = HomePlugHeader(CM_ECDH_EXCHANGE | MMTYPE_REQ)
+        ecdh_req_payload = ECDHExchangeReq(qc=qc_bytes)
+
+        frame_to_send = (
+            ethernet_header.pack_big()
+            + homeplug_header.pack_big()
+            + ecdh_req_payload.pack_big()
+        )
+
+        while True:
+            try:
+                await self.send_frame(frame_to_send)
+                data_rcvd = await self.rcv_frame(
+                    rcv_frame_size=FramesSizes.CM_ECDH_RESP,
+                    timeout=Timers.SLAC_INIT_TIMEOUT,
+                )
+                logger.debug(f"Payload Received: \n {hexlify(data_rcvd)}")
+                homeplug_frame = HomePlugHeader.from_bytes(data_rcvd)
+                if homeplug_frame.mm_type != CM_ECDH_EXCHANGE | MMTYPE_RSP:
+                    logger.warning("Frame received is not CM_ECDH_EXCHANGE.RSP")
+                    logger.debug("Continue waiting for CM_ECDH_EXCHANGE.RSP...")
+                    continue
+                ecdh_exchange_resp = ECDHExchangeResp.from_bytes(data_rcvd)
+                qv_bytes = ecdh_exchange_resp.qv
+                ev_public_key = ec.EllipticCurvePublicKey.from_encoded_point(
+                    ec.SECP192R1(),
+                    qv_bytes,
+                )
+                shared_secret = private_key.exchange(ec.ECDH(), ev_public_key)
+                self.nmk = sha256(shared_secret).digest()[:16]
+                logger.debug("New NMK Established!")
+                logger.debug(f"New NMK: {self.nmk}")
+            except asyncio.TimeoutError as e:
+                raise TimeoutError("ECDH Exchange Timeout raised") from e
+
     async def cm_slac_match(self):
         logger.debug("CM_SLAC_MATCH: Started...")
         # Await for a CM_SLAC_MATCH.REQ from EV
@@ -830,6 +884,7 @@ class SlacEvseSession(SlacSession):
         await self.cm_start_atten_charac()
         await self.cm_sounds_loop()
         await self.cm_atten_char()
+        await self.cm_ecdh_exchange()
         await self.cm_slac_match()
 
 

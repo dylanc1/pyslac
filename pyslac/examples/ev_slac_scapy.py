@@ -1,8 +1,11 @@
 from time import sleep
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 
 from scapy.all import (
     Ether,
     Packet,
+    StrFixedLenField,
     X3BytesField,
     XByteField,
     XIntField,
@@ -15,6 +18,7 @@ from scapy.all import (
 from pyslac.enums import (
     CM_ATTEN_CHAR,
     CM_ATTEN_PROFILE,
+    CM_ECDH_EXCHANGE,
     CM_MNBC_SOUND,
     CM_SET_KEY,
     CM_SLAC_MATCH,
@@ -146,6 +150,13 @@ class AttenCharResp(Packet):
     ]
 
 
+class ECDHExchangeResp(Packet):
+    name = "ECDH Key Exchange Response Payload "
+    fields_desc = [
+        StrFixedLenField("qv", b"\x00" * 49, 49),
+    ]
+
+
 class SlacMatch(Packet):
     name = "Slac Match Request Payload "
     fields_desc = [
@@ -235,6 +246,25 @@ eth_header.dst = host_mac
 atten_char_rsp = AttenCharResp(source_address=host_mac_int)
 frame_rsp = eth_header / homeplug_header / atten_char_rsp
 sendp(frame_rsp, iface=IFACE)
+sleep(0.2)
+
+
+private_key = ec.generate_private_key(ec.SECP192R1())
+x = private_key.private_numbers().private_value
+
+public_key = private_key.public_key()
+qv_bytes = public_key.public_bytes(
+    encoding=serialization.Encoding.X962,
+    format=serialization.PublicFormat.UncompressedPoint
+)
+print("Public key: %s" % qv_bytes)
+
+homeplug_header.mm_type = CM_ECDH_EXCHANGE | MMTYPE_RSP
+ecdh_exchange_resp = ECDHExchangeResp(qv=qv_bytes)
+frame_rsp = eth_header / homeplug_header / ecdh_exchange_resp
+
+sendp(frame_rsp, iface=IFACE)
+print('Sent ECDH Exchange frame')
 sleep(0.2)
 
 

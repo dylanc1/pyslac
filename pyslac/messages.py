@@ -770,6 +770,67 @@ class AtennCharRsp:
 
 
 @dataclass
+class ECDHExchangeReq:
+    """
+    New message type, not currently defined in ISO-15118-3 standards.
+    Based on the proposal made in Baker '19.
+
+    EVSE/PEV -> HPGP Node
+
+    This payload is defined as follows:
+    |Qc|
+
+    Qc [49 bytes]: A point on the elliptic curve representing the charging
+                   station's public key
+
+    Message size is = 49 bytes (using a curve over a 192-bit prime field)
+    """
+
+    # 49 bytes
+    qc: bytes
+
+    def __bytes__(self, endianess: str = "big"):
+        return self.qc
+
+    def pack_big(self):
+        return self.__bytes__()
+
+    def pack_little(self):
+        return self.__bytes__("little")
+
+
+@dataclass
+class ECDHExchangeResp:
+    """
+    New message type, not currently defined in ISO-15118-3 standards.
+    Based on the proposal made in Baker '19.
+
+    This payload is defined as follows:
+    |Qv|
+
+    Qv [49 bytes]: A point on the elliptic curve representing the EV's
+                   public key
+
+    Message size is = 38 bytes (for a 192-bit prime field)
+    """
+
+    qv: bytes
+
+    def __bytes__(self, endianess: str = "big"):
+        return self.qv
+
+    def pack_big(self):
+        return self.__bytes__()
+
+    def pack_little(self):
+        return self.__bytes__("little")
+
+    @classmethod
+    def from_bytes(cls, payload: ctypes) -> "ECDHExchangeResp":
+        return cls(qv=payload[19:])
+
+
+@dataclass
 class MatchReq:
     # pylint: disable=too-many-instance-attributes
     """
