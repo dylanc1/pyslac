@@ -38,6 +38,7 @@ from pyslac.enums import (
     STATE_UNMATCHED,
     FramesSizes,
     Timers,
+    get_mm_type_name
 )
 
 # This timeout is imported from the environment file, because it makes it
@@ -71,6 +72,8 @@ from pyslac.utils import task_callback, time_now_ms
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("slac_session")
+step_through = True
+step_timeout = 20
 
 
 @dataclass
@@ -329,7 +332,7 @@ class SlacEvseSession(SlacSession):
             await self.send_frame(frame_to_send)
             data_rcvd = await self.rcv_frame(
                 rcv_frame_size=FramesSizes.CM_SET_KEY_CNF,
-                timeout=Timers.SLAC_INIT_TIMEOUT,
+                timeout=Timers.SLAC_INIT_TIMEOUT if not step_through else step_timeout,
             )
         except asyncio.TimeoutError as e:
             raise TimeoutError("SetKey Timeout raised") from e
@@ -367,7 +370,7 @@ class SlacEvseSession(SlacSession):
                 # it this frame requires padding)
                 data_rcvd = await self.rcv_frame(
                     rcv_frame_size=FramesSizes.CM_SLAC_PARM_REQ,
-                    timeout=self.config.slac_init_timeout,
+                    timeout=self.config.slac_init_timeout if not step_through else step_timeout,
                 )
             except TimeoutError as e:
                 logger.warning(f"Timeout waiting for CM_SLAC_PARM.REQ: {e}")
@@ -376,7 +379,7 @@ class SlacEvseSession(SlacSession):
                 ether_frame = EthernetHeader.from_bytes(data_rcvd)
                 homeplug_frame = HomePlugHeader.from_bytes(data_rcvd)
                 if homeplug_frame.mm_type != CM_SLAC_PARM | MMTYPE_REQ:
-                    logger.warning("Frame received is not CM_SLAC_PARM.REQ")
+                    logger.warning(f"Frame received is not CM_SLAC_PARM.REQ ({get_mm_type_name(homeplug_frame.mm_type)})")
                     logger.debug("Continue waiting for CM_SLAC_PARM.REQ...")
                     continue
                 slac_parm_req = SlacParmReq.from_bytes(data_rcvd)
@@ -407,7 +410,7 @@ class SlacEvseSession(SlacSession):
         )
 
         await self.send_frame(frame_to_send)
-        logger.debug("Sent SLAC_PARM.CNF")
+        logger.debug("2: Sent SLAC_PARM.CNF")
 
         # Update SLAC Session State, indicating that is occupied and ready for
         # a match decision process
@@ -427,12 +430,12 @@ class SlacEvseSession(SlacSession):
                 # it this frame requires padding)
                 data_rcvd = await self.rcv_frame(
                     rcv_frame_size=FramesSizes.CM_START_ATTEN_CHAR_IND,
-                    timeout=Timers.SLAC_REQ_TIMEOUT,
+                    timeout=Timers.SLAC_REQ_TIMEOUT if not step_through else step_timeout,
                 )
                 EthernetHeader.from_bytes(data_rcvd)
                 homeplug_frame = HomePlugHeader.from_bytes(data_rcvd)
                 if homeplug_frame.mm_type != CM_START_ATTEN_CHAR | MMTYPE_IND:
-                    logger.warning("Frame received is not CM_START_ATTEN_CHAR.IND")
+                    logger.warning(f"Frame received is not CM_START_ATTEN_CHAR.IND ({get_mm_type_name(homeplug_frame.mm_type)})")
                     logger.debug("Continue waiting for CM_START_ATTEN_CHAR.IND...")
                     continue
                 start_atten_char = StartAtennChar.from_bytes(data_rcvd)
@@ -588,7 +591,7 @@ class SlacEvseSession(SlacSession):
                     rcv_frame_size=next_frame_size,
                     # The SLAC_REQ_TIMEOUT used seems to not be enough for the
                     # PLC chip to send a sound, so we use 1 sec instead
-                    timeout=1,
+                    timeout=1 if not step_through else step_timeout,
                 )
                 ether_frame = EthernetHeader.from_bytes(data_rcvd)
                 homeplug_frame = HomePlugHeader.from_bytes(data_rcvd)
@@ -644,6 +647,7 @@ class SlacEvseSession(SlacSession):
         )
 
         await self.send_frame(frame_to_send)
+        logger.debug("5: Sent ATTEN_CHAR.IND")
         while True:
             try:
                 # A complete CM_ATTEN_CHAR.RSP frame must have 70 Bytes:
@@ -654,13 +658,13 @@ class SlacEvseSession(SlacSession):
                     rcv_frame_size=FramesSizes.CM_ATTEN_CHAR_RSP,
                     # The SLAC_RESP_TIMEOUT used seems to not be enough for the
                     # PLC chip to send a sound, so we use 1 sec instead
-                    timeout=1,
+                    timeout=1 if not step_through else step_timeout,
                 )
                 logger.debug(f"Payload Received: \n {hexlify(data_rcvd)}")
                 ether_frame = EthernetHeader.from_bytes(data_rcvd)
                 homeplug_frame = HomePlugHeader.from_bytes(data_rcvd)
                 if homeplug_frame.mm_type != CM_ATTEN_CHAR | MMTYPE_RSP:
-                    logger.warning("Frame received is not CM_ATTEN_CHAR.RSP")
+                    logger.warning(f"Frame received is not CM_ATTEN_CHAR.RSP ({get_mm_type_name(homeplug_frame.mm_type)})")
                     logger.debug("Continue waiting for CM_ATTEN_CHAR.RSP...")
                     continue
                 atten_charac_response = AtennCharRsp.from_bytes(data_rcvd)
@@ -701,8 +705,10 @@ class SlacEvseSession(SlacSession):
     async def cm_ecdh_exchange(self):
         logger.debug("CM_ECDH_EXCHANGE: Started...")
 
+        # Generate private key using the same elliptic curve as the EV
         private_key = ec.generate_private_key(ec.SECP192R1())
         public_key = private_key.public_key()
+        # Encodes the public key to be sent in the request to the EV
         qc_bytes = public_key.public_bytes(
             encoding=serialization.Encoding.X962,
             format=serialization.PublicFormat.UncompressedPoint
@@ -722,23 +728,30 @@ class SlacEvseSession(SlacSession):
 
         while True:
             try:
+                logger.debug("7: Sent ECDH_EXCHANGE.REQ")
                 await self.send_frame(frame_to_send)
+
+                # Await the ECDH Exchange Response
                 data_rcvd = await self.rcv_frame(
                     rcv_frame_size=FramesSizes.CM_ECDH_RESP,
-                    timeout=Timers.SLAC_INIT_TIMEOUT,
+                    timeout=Timers.SLAC_INIT_TIMEOUT if not step_through else step_timeout, # extend timeout for the GUI step through
                 )
                 logger.debug(f"Payload Received: \n {hexlify(data_rcvd)}")
                 homeplug_frame = HomePlugHeader.from_bytes(data_rcvd)
                 if homeplug_frame.mm_type != CM_ECDH_EXCHANGE | MMTYPE_RSP:
-                    logger.warning("Frame received is not CM_ECDH_EXCHANGE.RSP")
+                    logger.warning(f"Frame received is not CM_ECDH_EXCHANGE.RSP ({get_mm_type_name(homeplug_frame.mm_type)})")
                     logger.debug("Continue waiting for CM_ECDH_EXCHANGE.RSP...")
                     continue
+
+                # Extract the EVs public key from the ECDH Exchange Response message
                 ecdh_exchange_resp = ECDHExchangeResp.from_bytes(data_rcvd)
                 qv_bytes = ecdh_exchange_resp.qv
                 ev_public_key = ec.EllipticCurvePublicKey.from_encoded_point(
                     ec.SECP192R1(),
                     qv_bytes,
                 )
+
+                # Calculate shared key used to determine the new NMK
                 shared_secret = private_key.exchange(ec.ECDH(), ev_public_key)
                 self.nmk = sha256(shared_secret).digest()[:16]
                 logger.debug("New NMK Established!")
@@ -758,14 +771,14 @@ class SlacEvseSession(SlacSession):
                 # AttenCharRsp = 66 bytes
                 data_rcvd = await self.rcv_frame(
                     rcv_frame_size=FramesSizes.CM_SLAC_MATCH_REQ,
-                    timeout=Timers.SLAC_MATCH_TIMEOUT,
+                    timeout=Timers.SLAC_MATCH_TIMEOUT if not step_through else step_timeout,
                 )
 
                 logger.debug(f"Payload Received: \n {hexlify(data_rcvd)}")
                 ether_frame = EthernetHeader.from_bytes(data_rcvd)
                 homeplug_frame = HomePlugHeader.from_bytes(data_rcvd)
                 if homeplug_frame.mm_type != CM_SLAC_MATCH | MMTYPE_REQ:
-                    logger.warning("Frame received is not CM_SLAC_MATCH.REQ")
+                    logger.warning(f"Frame received is not CM_SLAC_MATCH.REQ ({get_mm_type_name(homeplug_frame.mm_type)})")
                     logger.debug("Continue waiting for CM_SLAC_MATCH.REQ...")
                     continue
                 slac_match_req = MatchReq.from_bytes(data_rcvd)
@@ -811,7 +824,7 @@ class SlacEvseSession(SlacSession):
             evse_mac=self.evse_mac,
             run_id=self.run_id,
             nid=self.nid,
-            nmk=self.nmk,
+            nmk=bytes(16),
         )
 
         frame_to_send = (
@@ -821,6 +834,7 @@ class SlacEvseSession(SlacSession):
         )
 
         await self.send_frame(frame_to_send)
+        logger.debug("10: Sent CM_SLAC_MATCH.CNF")
         logger.debug("CM_SLAC_MATCH: Finished!")
         self.state = STATE_MATCHED
 
