@@ -16,6 +16,8 @@ from pyslac.utils import wait_for_tasks
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__file__)
 
+step_through = False
+
 
 class SlacHandler(SlacSessionController):
     def __init__(self, slac_config: Config):
@@ -67,7 +69,7 @@ class SlacHandler(SlacSessionController):
         await self.process_cp_state(session, "B")
         await asyncio.sleep(2)
         await self.process_cp_state(session, "C")
-        await asyncio.sleep(20)
+        await asyncio.sleep(20 if not step_through else 60)
         await self.process_cp_state(session, "A")
 
 

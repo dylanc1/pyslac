@@ -9,12 +9,15 @@ import pyslac.examples
 import pyslac.examples.ev_slac_scapy_mod
 import pyslac.examples.single_slac_session
 
+
+# Handles the logs from the SE side
 class SELogHandler(logging.Handler):
     def __init__(self, widget):
         super().__init__()
         self.widget = widget
         self.define_tags()
 
+    # Color codes the output logs
     def define_tags(self):
         self.widget.tag_config("existing", foreground="blue")
         self.widget.tag_config("new", foreground="green")
@@ -26,12 +29,9 @@ class SELogHandler(logging.Handler):
         msg = self.format(record)
         if record.getMessage()[:3] == "EV:":
             return
-        
+
         tag = "default"
-        # if "CM_SLAC_PARM: Started..." in record.getMessage(): pass
-        # if "Sent SLAC_PARM.CNF" in record.getMessage():
-        #     draw_step("1: CM_SLAC_PARM.REQ")
-        #     tag = "existing"
+        # Draw arrows when specified logs are received
         if "Sent SLAC_PARM.CNF" in record.getMessage():
             draw_step("2: CM_SLAC_PARM.CNF")
             tag = "existing"
@@ -44,6 +44,8 @@ class SELogHandler(logging.Handler):
         elif "Sent CM_SLAC_MATCH.CNF" in record.getMessage():
             draw_step("10: CM_SLAC_MATCH.CNF")
             tag = "existing"
+
+        # Handle error logs
         if record.levelname == "ERROR":
             error_found = True
             draw_step("ERROR")
@@ -52,15 +54,16 @@ class SELogHandler(logging.Handler):
         self.widget.insert(tk.END, msg + '\n', tag)
         self.widget.see(tk.END)
         self.widget.configure(state='disabled')
-        
-        
 
+
+# Handles the logs from the EV side
 class EVLogHandler(logging.Handler):
     def __init__(self, widget):
         super().__init__()
         self.widget = widget
         self.define_tags()
 
+    # Color codes the output logs
     def define_tags(self):
         self.widget.tag_config("existing", foreground="lightblue")
         self.widget.tag_config("new", foreground="green")
@@ -72,9 +75,10 @@ class EVLogHandler(logging.Handler):
         if record.getMessage()[:3] != "EV:":
             return
         msg = self.format(record)
-        msg = msg[:13] + msg[16:] # Removes EV: tag from msg (need to fix to work with non-debug logs)
+        msg = msg[:13] + msg[16:]  # Removes EV: tag from msg (need to fix to work with non-debug logs) # noqa: E501
 
         tag = "default"
+        # Draw arrows when specified logs are received
         if "Sent Param Request" in record.getMessage():
             draw_step("1: CM_SLAC_PARM.REQ")
             tag = "existing"
@@ -94,18 +98,19 @@ class EVLogHandler(logging.Handler):
             draw_step("9: CM_SLAC_MATCH.REQ")
             tag = "existing"
 
+        # Handle error logs
         if record.levelname == "ERROR":
             error_found = True
             draw_step("ERROR")
             tag = "error"
-        
+
         self.widget.configure(state='normal')
         self.widget.insert(tk.END, msg + '\n', tag)
         self.widget.see(tk.END)
         self.widget.configure(state='disabled')
-        
-        
 
+
+# Waits for step button to be pressed if not auto-run
 def wait_for_step():
     if not auto_run.is_set():
         step_button.config(bg="green")
@@ -114,14 +119,15 @@ def wait_for_step():
     else:
         time.sleep(0.5)
 
-# --- Drawing Stuff ---
+
+# Arrow Locations
 message_arrows = {
     "1: CM_SLAC_PARM.REQ": [(200, 40, 500, 40), 0],
     "2: CM_SLAC_PARM.CNF": [(500, 70, 200, 70), 1],
     "3: CM_START_ATTEN_CHAR.IND": [(200, 100, 500, 100), 2],
     "4: CM_MNBC_SOUND.IND": [(200, 130, 500, 130), 3],
     "5: CM_ATTEN_CHAR.IND": [(500, 160, 200, 160), 4],
-    "6: CM_ATTEN_CHAR.RSP": [(200, 190, 500, 190), 5], 
+    "6: CM_ATTEN_CHAR.RSP": [(200, 190, 500, 190), 5],
     "7: CM_ECDH_EXCHANGE.REQ": [(200, 220, 500, 220), 6],
     "8: CM_ECDH_EXCHANGE.RSP": [(500, 250, 200, 250), 7],
     "9: CM_SLAC_MATCH.REQ": [(200, 280, 500, 280), 8],
@@ -129,13 +135,15 @@ message_arrows = {
 }
 drawn_arrows = {}
 
+
+# Handles the drawing of arrows / error message
 def draw_step(msg_type):
     global next_step
     if error_found:
-        x1, y1, x2, y2 = message_arrows[steps[next_step]][0] # Below the last-drawn arrow
+        x1, y1, x2, y2 = message_arrows[steps[next_step]][0]  # Below the last-drawn arrow # noqa: E501
         mid_x = (x1 + x2) / 2
         mid_y = (y1 + y2) / 2 - 10  # slight vertical offset to avoid overlap
-        label = canvas.create_text(mid_x, mid_y, text="ERROR: Check logs", font=('Arial', 10), fill="red")
+        label = canvas.create_text(mid_x, mid_y, text="ERROR: Check logs", font=('Arial', 10), fill="red")  # noqa: E501
         return
     if msg_type not in drawn_arrows and msg_type in message_arrows:
         x1, y1, x2, y2 = message_arrows[msg_type][0]
@@ -143,12 +151,13 @@ def draw_step(msg_type):
         arrow = canvas.create_line(x1, y1, x2, y2, arrow=tk.LAST, fill='black', width=2)
         mid_x = (x1 + x2) / 2
         mid_y = (y1 + y2) / 2 - 10  # slight vertical offset to avoid overlap
-        label_color = 'green' if "CM_ECDH_EXCHANGE" in msg_type else 'blue'
-        label = canvas.create_text(mid_x, mid_y, text=msg_type, font=('Arial', 10), fill=label_color)
+        label_color = 'green' if "CM_ECDH_EXCHANGE" in msg_type else 'blue'  # Visual difference between existing and new steps # noqa: E501
+        label = canvas.create_text(mid_x, mid_y, text=msg_type, font=('Arial', 10), fill=label_color)  # noqa: E501
         update_step_label()
         drawn_arrows[msg_type] = {arrow, label}
-        
-# --- SLAC Control ---
+
+
+# SLAC Control
 step_event = threading.Event()
 auto_run = threading.Event()
 next_step = 0
@@ -159,7 +168,7 @@ steps = [
     "3: CM_START_ATTEN_CHAR.IND",
     "4: CM_MNBC_SOUND.IND",
     "5: CM_ATTEN_CHAR.IND",
-    "6: CM_ATTEN_CHAR.RSP", 
+    "6: CM_ATTEN_CHAR.RSP",
     "7: CM_ECDH_EXCHANGE.REQ",
     "8: CM_ECDH_EXCHANGE.RSP",
     "9: CM_SLAC_MATCH.REQ",
@@ -169,6 +178,7 @@ steps = [
 # SLAC Control Functions
 running = False
 error_found = False
+
 
 def start_slac():
     global running
@@ -181,6 +191,8 @@ def start_slac():
         try:
             running = True
             error_found = False
+            # The lack of granularity here is why we only step through
+            # EV communications
             pyslac.examples.single_slac_session.run()
         except Exception as e:
             error_found = True
@@ -188,6 +200,7 @@ def start_slac():
         finally:
             running = False
 
+    # Essentially recreates the EV run function but with more control
     def ev_slac_wrapper():
         global error_found
         try:
@@ -243,7 +256,7 @@ def start_slac():
     threading.Thread(target=ev_slac_wrapper, daemon=True).start()
 
 
-# --- Tkinter Setup ---
+# Tkinter Setup
 root = tk.Tk()
 root.title("SLAC Stepper GUI")
 root.geometry("700x600")
@@ -267,14 +280,18 @@ control_frame.pack(pady=10)
 step_label = tk.Label(control_frame, text="Next Step: -")
 step_label.pack()
 
+
 def update_step_label():
-    step_label.config(text=f"Next Step: {steps[next_step][3:] if next_step < len(steps) else 'Finished'}")
+    step_label.config(text=f"Next Step: {steps[next_step][3:] if next_step < len(steps) else 'Finished'}")  # noqa: E501
+
 
 def start_slac_button():
     threading.Thread(target=start_slac, daemon=True).start()
 
+
 def step_forward():
     step_event.set()
+
 
 def toggle_run_all():
     if auto_run.is_set():
@@ -285,13 +302,14 @@ def toggle_run_all():
         runall_button.config(text="Pause Run All")
         step_event.set()
 
-start_button = tk.Button(control_frame, bg="gray90", text="Start SLAC", command=start_slac_button)
+
+start_button = tk.Button(control_frame, bg="gray90", text="Start SLAC", command=start_slac_button)  # noqa: E501
 start_button.pack(side=tk.LEFT, padx=5)
 
 step_button = tk.Button(control_frame, bg="gray90", text="Step", command=step_forward)
 step_button.pack(side=tk.LEFT, padx=5)
 
-runall_button = tk.Button(control_frame, bg="gray90", text="Run All", command=toggle_run_all)
+runall_button = tk.Button(control_frame, bg="gray90", text="Run All", command=toggle_run_all)  # noqa: E501
 runall_button.pack(side=tk.LEFT, padx=5)
 
 
@@ -303,7 +321,7 @@ paned.pack(fill=tk.BOTH, expand=True)
 # SE console
 frame1 = tk.Frame(paned)
 tk.Label(frame1, text="Console Output").pack()
-se_console = scrolledtext.ScrolledText(frame1, state='disabled', width=60, height=20, bg='black', fg='white')
+se_console = scrolledtext.ScrolledText(frame1, state='disabled', width=60, height=20, bg='black', fg='white')  # noqa: E501
 se_console.pack(fill=tk.BOTH)
 
 paned.add(frame1)
@@ -314,7 +332,7 @@ se_formatter = logging.Formatter('[SE] %(levelname)s - %(message)s')
 ev_formatter = logging.Formatter('[EV] %(levelname)s - %(message)s')
 se_handler = SELogHandler(se_console)
 se_handler.setFormatter(se_formatter)
-ev_handler = EVLogHandler(se_console) # changed
+ev_handler = EVLogHandler(se_console)
 ev_handler.setFormatter(ev_formatter)
 logger.addHandler(se_handler)
 logger.addHandler(ev_handler)

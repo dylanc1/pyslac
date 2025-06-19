@@ -359,7 +359,7 @@ async def test_slac_match(evse_slac_session, evse_mac):
             evse_mac=evse_mac,
             run_id=RUN_ID,
             nid=QUALCOMM_NID,
-            nmk=QUALCOMM_NMK,
+            nmk=bytes(16),
         )
 
         frame_to_send = (

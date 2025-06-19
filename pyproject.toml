@@ -5,8 +5,9 @@ description = "SLAC Protocol implementation, defined in ISO15118-3"
 authors = ["André Duarte <andre@switch-ev.com, andre14x@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.7"
-environs = "^9.5.0"
+python = ">3.9.1,<4"
+environs = "^14.1.0"
+cryptography = "==44.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.1.1"
@@ -24,7 +25,6 @@ dill = "^0.3.7"  # or latest
 pylint = "<3.0"
 scapy = "^2.6.1"
 wrapt = "==1.12.1"
-cryptography = "^42.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

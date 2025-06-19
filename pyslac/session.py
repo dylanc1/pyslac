@@ -370,7 +370,7 @@ class SlacEvseSession(SlacSession):
                 # it this frame requires padding)
                 data_rcvd = await self.rcv_frame(
                     rcv_frame_size=FramesSizes.CM_SLAC_PARM_REQ,
-                    timeout=self.config.slac_init_timeout if not step_through else step_timeout,
+                    timeout=self.config.slac_init_timeout if not step_through else step_timeout,  # noqa: E501
                 )
             except TimeoutError as e:
                 logger.warning(f"Timeout waiting for CM_SLAC_PARM.REQ: {e}")
@@ -379,7 +379,7 @@ class SlacEvseSession(SlacSession):
                 ether_frame = EthernetHeader.from_bytes(data_rcvd)
                 homeplug_frame = HomePlugHeader.from_bytes(data_rcvd)
                 if homeplug_frame.mm_type != CM_SLAC_PARM | MMTYPE_REQ:
-                    logger.warning(f"Frame received is not CM_SLAC_PARM.REQ ({get_mm_type_name(homeplug_frame.mm_type)})")
+                    logger.warning(f"Frame received is not CM_SLAC_PARM.REQ ({get_mm_type_name(homeplug_frame.mm_type)})")  # noqa: E501
                     logger.debug("Continue waiting for CM_SLAC_PARM.REQ...")
                     continue
                 slac_parm_req = SlacParmReq.from_bytes(data_rcvd)
@@ -430,12 +430,12 @@ class SlacEvseSession(SlacSession):
                 # it this frame requires padding)
                 data_rcvd = await self.rcv_frame(
                     rcv_frame_size=FramesSizes.CM_START_ATTEN_CHAR_IND,
-                    timeout=Timers.SLAC_REQ_TIMEOUT if not step_through else step_timeout,
+                    timeout=Timers.SLAC_REQ_TIMEOUT if not step_through else step_timeout,  # noqa: E501
                 )
                 EthernetHeader.from_bytes(data_rcvd)
                 homeplug_frame = HomePlugHeader.from_bytes(data_rcvd)
                 if homeplug_frame.mm_type != CM_START_ATTEN_CHAR | MMTYPE_IND:
-                    logger.warning(f"Frame received is not CM_START_ATTEN_CHAR.IND ({get_mm_type_name(homeplug_frame.mm_type)})")
+                    logger.warning(f"Frame received is not CM_START_ATTEN_CHAR.IND ({get_mm_type_name(homeplug_frame.mm_type)})")  # noqa: E501
                     logger.debug("Continue waiting for CM_START_ATTEN_CHAR.IND...")
                     continue
                 start_atten_char = StartAtennChar.from_bytes(data_rcvd)
@@ -664,7 +664,7 @@ class SlacEvseSession(SlacSession):
                 ether_frame = EthernetHeader.from_bytes(data_rcvd)
                 homeplug_frame = HomePlugHeader.from_bytes(data_rcvd)
                 if homeplug_frame.mm_type != CM_ATTEN_CHAR | MMTYPE_RSP:
-                    logger.warning(f"Frame received is not CM_ATTEN_CHAR.RSP ({get_mm_type_name(homeplug_frame.mm_type)})")
+                    logger.warning(f"Frame received is not CM_ATTEN_CHAR.RSP ({get_mm_type_name(homeplug_frame.mm_type)})")  # noqa: E501
                     logger.debug("Continue waiting for CM_ATTEN_CHAR.RSP...")
                     continue
                 atten_charac_response = AtennCharRsp.from_bytes(data_rcvd)
@@ -708,6 +708,7 @@ class SlacEvseSession(SlacSession):
         # Generate private key using the same elliptic curve as the EV
         private_key = ec.generate_private_key(ec.SECP192R1())
         public_key = private_key.public_key()
+
         # Encodes the public key to be sent in the request to the EV
         qc_bytes = public_key.public_bytes(
             encoding=serialization.Encoding.X962,
@@ -726,20 +727,20 @@ class SlacEvseSession(SlacSession):
             + ecdh_req_payload.pack_big()
         )
 
+        logger.debug("7: Sent ECDH_EXCHANGE.REQ")
+        await self.send_frame(frame_to_send)
+
         while True:
             try:
-                logger.debug("7: Sent ECDH_EXCHANGE.REQ")
-                await self.send_frame(frame_to_send)
-
                 # Await the ECDH Exchange Response
                 data_rcvd = await self.rcv_frame(
                     rcv_frame_size=FramesSizes.CM_ECDH_RESP,
-                    timeout=Timers.SLAC_INIT_TIMEOUT if not step_through else step_timeout, # extend timeout for the GUI step through
+                    timeout=Timers.SLAC_INIT_TIMEOUT if not step_through else step_timeout,  # noqa: E501
                 )
                 logger.debug(f"Payload Received: \n {hexlify(data_rcvd)}")
                 homeplug_frame = HomePlugHeader.from_bytes(data_rcvd)
                 if homeplug_frame.mm_type != CM_ECDH_EXCHANGE | MMTYPE_RSP:
-                    logger.warning(f"Frame received is not CM_ECDH_EXCHANGE.RSP ({get_mm_type_name(homeplug_frame.mm_type)})")
+                    logger.warning(f"Frame received is not CM_ECDH_EXCHANGE.RSP ({get_mm_type_name(homeplug_frame.mm_type)})")  # noqa: E501
                     logger.debug("Continue waiting for CM_ECDH_EXCHANGE.RSP...")
                     continue
 
@@ -771,14 +772,14 @@ class SlacEvseSession(SlacSession):
                 # AttenCharRsp = 66 bytes
                 data_rcvd = await self.rcv_frame(
                     rcv_frame_size=FramesSizes.CM_SLAC_MATCH_REQ,
-                    timeout=Timers.SLAC_MATCH_TIMEOUT if not step_through else step_timeout,
+                    timeout=Timers.SLAC_MATCH_TIMEOUT if not step_through else step_timeout,  # noqa: E501
                 )
 
                 logger.debug(f"Payload Received: \n {hexlify(data_rcvd)}")
                 ether_frame = EthernetHeader.from_bytes(data_rcvd)
                 homeplug_frame = HomePlugHeader.from_bytes(data_rcvd)
                 if homeplug_frame.mm_type != CM_SLAC_MATCH | MMTYPE_REQ:
-                    logger.warning(f"Frame received is not CM_SLAC_MATCH.REQ ({get_mm_type_name(homeplug_frame.mm_type)})")
+                    logger.warning(f"Frame received is not CM_SLAC_MATCH.REQ ({get_mm_type_name(homeplug_frame.mm_type)})")  # noqa: E501
                     logger.debug("Continue waiting for CM_SLAC_MATCH.REQ...")
                     continue
                 slac_match_req = MatchReq.from_bytes(data_rcvd)
@@ -992,7 +993,7 @@ class SlacSessionController:
             await slac_session.evse_slac_parm()
             if slac_session.state == STATE_MATCHING:
                 logger.info(
-                    f"Matching ongoing (EVSE ID: {slac_session.evse_id}. Run ID: {slac_session.run_id})."   # noqa: E501
+                    f"Matching ongoing (EVSE ID: {slac_session.evse_id}. Run ID: {slac_session.run_id})."  # noqa: E501
                 )
                 await self.notify_matching_ongoing(slac_session.evse_id)
                 try:
@@ -1006,7 +1007,7 @@ class SlacSessionController:
                     )
             if slac_session.state == STATE_MATCHED:
                 logger.info(
-                    f"PEV-EVSE MATCHED Successfully, Link Established (EVSE ID: {slac_session.evse_id}. Run ID: {slac_session.run_id})."   # noqa: E501
+                    f"PEV-EVSE MATCHED Successfully, Link Established (EVSE ID: {slac_session.evse_id}. Run ID: {slac_session.run_id})."  # noqa: E501   # noqa: E501
                 )
                 while True:
                     await asyncio.sleep(2.0)

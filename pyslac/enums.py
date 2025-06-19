@@ -227,6 +227,6 @@ MM_TYPE_NAMES = {
     CM_SLAC_MATCH | MMTYPE_CNF: "CM_SLAC_MATCH.CNF"
 }
 
+
 def get_mm_type_name(mm_type):
     return MM_TYPE_NAMES.get(mm_type, f"Unknown(0x{mm_type:04X})")
-
