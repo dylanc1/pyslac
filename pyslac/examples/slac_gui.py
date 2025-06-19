@@ -6,7 +6,7 @@ import time
 
 import pyslac
 import pyslac.examples
-import pyslac.examples.ev_slac_scapy_mod
+import pyslac.examples.ev_slac_scapy
 import pyslac.examples.single_slac_session
 
 
@@ -204,49 +204,49 @@ def start_slac():
     def ev_slac_wrapper():
         global error_found
         try:
-            pyslac.examples.ev_slac_scapy_mod.setup()
-            pyslac.examples.ev_slac_scapy_mod.setKeyConfirmation()
+            pyslac.examples.ev_slac_scapy.setup()
+            pyslac.examples.ev_slac_scapy.setKeyConfirmation()
             step_button.config(bg="gray40")
             time.sleep(20)
             wait_for_step()
             step_button.config(bg="gray90")
-            pyslac.examples.ev_slac_scapy_mod.paramRequest()
+            pyslac.examples.ev_slac_scapy.paramRequest()
             wait_for_step()
             step_button.config(bg="gray90")
-            pyslac.examples.ev_slac_scapy_mod.attenChar()
+            pyslac.examples.ev_slac_scapy.attenChar()
             wait_for_step()
             step_button.config(bg="gray90")
-            pyslac.examples.ev_slac_scapy_mod.mnbcSound()
+            pyslac.examples.ev_slac_scapy.mnbcSound()
             step_button.config(bg="gray40")
             time.sleep(0.1)
             wait_for_step()
             step_button.config(bg="gray90")
-            pyslac.examples.ev_slac_scapy_mod.attenProfile()
+            pyslac.examples.ev_slac_scapy.attenProfile()
             step_button.config(bg="gray40")
             time.sleep(0.1)
             wait_for_step()
             step_button.config(bg="gray90")
-            pyslac.examples.ev_slac_scapy_mod.mnbcSound()
+            pyslac.examples.ev_slac_scapy.mnbcSound()
             step_button.config(bg="gray40")
             time.sleep(0.1)
             wait_for_step()
             step_button.config(bg="gray90")
-            pyslac.examples.ev_slac_scapy_mod.attenProfile()
+            pyslac.examples.ev_slac_scapy.attenProfile()
             step_button.config(bg="gray40")
             time.sleep(0.1)
             wait_for_step()
             step_button.config(bg="gray90")
-            pyslac.examples.ev_slac_scapy_mod.attenCharResponse()
+            pyslac.examples.ev_slac_scapy.attenCharResponse()
             step_button.config(bg="gray40")
             time.sleep(0.2)
             wait_for_step()
             step_button.config(bg="gray90")
-            pyslac.examples.ev_slac_scapy_mod.ecdhExchange()
+            pyslac.examples.ev_slac_scapy.ecdhExchange()
             step_button.config(bg="gray40")
             time.sleep(0.2)
             wait_for_step()
             step_button.config(bg="gray90")
-            pyslac.examples.ev_slac_scapy_mod.slacMatch()
+            pyslac.examples.ev_slac_scapy.slacMatch()
         except Exception as e:
             error_found = True
             messagebox.showerror("Error", str(e))
