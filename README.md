@@ -192,6 +192,16 @@ This integration test was tested under:
 
 - Linux - Ubuntu and Debian distros
 
+## SLAC GUI (NEW)
+
+The SLAC GUI takes the Integration Test with an EV SLAC Simulator and adds
+a visual tool that displays the steps as they occur and adds a console window
+at the bottom to view logs. In order to step through the EV SLAC messages
+without running into timeout errors, it is necessary to toggle the step_through
+variable in session.py to True. The step_timeout period defaults to 20 seconds
+but can be adjusted in session.py as well. Unfortunately timeout errors may
+still occur even with step_through set to true, but restarting the script will
+usually fix the problem.
 
 ## License
 
